@@ -17,7 +17,7 @@ public class MixImpl implements Mix {
         while (isGoon){
             boolean hasLenItem = false;
             for (String s:input){
-                if(!TextUtils.isEmpty(s) && s.length()-1 > count){
+                if(!TextUtils.isEmpty(s) && s.length() > count){
                     hasLenItem = true;
                     sb.append(s.charAt(count));
                 }

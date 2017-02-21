@@ -1,9 +1,8 @@
 package com.forthe.xmemory.core;
 
-public interface SODPool {
+public interface YETPool {
     boolean hasInited();
-    String createRandomSOD();
+    String[] createRandomYET();
     void fillPool();
-    void insert(String sod);
     String[][] queryColumns();
 }

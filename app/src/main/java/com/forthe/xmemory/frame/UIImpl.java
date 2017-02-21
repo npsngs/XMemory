@@ -1,84 +1,90 @@
 package com.forthe.xmemory.frame;
 
 import android.content.Context;
-import android.text.TextUtils;
+import android.content.SharedPreferences;
 
 import com.forthe.xlog.XLog;
 import com.forthe.xmemory.core.CTS;
 import com.forthe.xmemory.core.CTSStore;
 import com.forthe.xmemory.core.Const;
-import com.forthe.xmemory.core.SODPool;
-import com.forthe.xmemory.core.SOTransverter;
+import com.forthe.xmemory.core.Device;
+import com.forthe.xmemory.core.SOConvertor;
+import com.forthe.xmemory.core.YETPool;
 import com.forthe.xmemory.core.UI;
 
 import java.util.List;
 
 
 public class UIImpl implements UI {
-    private SOTransverter transverter;
+    private SOConvertor convertor;
     private CTSStore ctsStore;
-    private SODPool sodPool;
-    public UIImpl(Context context) {
-        transverter = new SOTransverterImpl();
-        ctsStore = new CTSStoreImpl(context);
-        sodPool = new SODPoolImpl(context);
-    }
+    private YETPool yetPool;
 
     @Override
-    public void insert(String CE, String TN, String SO) throws Exception {
-        String key = transverter.CETN2Key(CE,TN);
-        String som = transverter.SO2SOM(SO, key);
-        String sod = transverter.SO2SOD(SO, key);
-        CTS cts = new CTS();
-        cts.setCE(CE);
-        cts.setTN(TN);
-        cts.setSOM(som);
-        ctsStore.insert(cts);
-        sodPool.insert(sod);
-    }
-
-    @Override
-    public String querySO(String CE, String TN) throws Exception {
-        String som = null;
-        List<CTS> ctss = ctsStore.queryByCETN(CE, TN);
-        if(null != ctss && ctss.size() > 0){
-            som = ctss.get(0).getSOM();
+    public void init(Context context) {
+        SharedPreferences sp = context.getSharedPreferences(Const.SP_KEY, Context.MODE_PRIVATE);
+        boolean hasInit = sp.getBoolean("hit",false);
+        if(!hasInit){
+            sp.edit().putString("sod_svl", System.currentTimeMillis()+"").putBoolean("hit", true).apply();
         }
 
-        if(TextUtils.isEmpty(som)){
+        Device device = new DeviceImpl();
+        device.createDeviceKey(context);
+
+        DBHelper.init(context);
+        ctsStore = new CTSStoreImpl();
+        yetPool = new YETPoolImpl();
+        convertor = new SOConvertorImpl();
+        if(!yetPool.hasInited()){
+            XLog.i("fill pool start");
+            yetPool.fillPool();
+            XLog.i("fill pool success");
+        }
+    }
+
+    @Override
+    public void insert(String TN, String SO, int svl) throws Exception {
+        CTS cts = new CTS();
+        cts.setCE(convertor.TNToCE(TN));
+        cts.setTN(TN);
+        cts.setSOM(convertor.SOToSOM(cts, SO));
+        cts.setSVL(svl);
+        convertor.encode(cts, SO);
+        ctsStore.insert(cts);
+    }
+
+    @Override
+    public void insert(String TN, String SO, int svl, String TA) throws Exception {
+        CTS cts = new CTS();
+        cts.setTA(TA);
+        cts.setCE(convertor.TNToCE(TN));
+        cts.setTN(TN);
+        cts.setSOM(convertor.SOToSOM(cts, SO));
+        cts.setSVL(svl);
+        convertor.encode(cts, SO);
+        ctsStore.insert(cts);
+    }
+
+    @Override
+    public String querySO(String TN) throws Exception {
+        CTS cts;
+        List<CTS> ctss = ctsStore.queryByTN(TN);
+        if(null != ctss && ctss.size() > 0){
+            cts = ctss.get(0);
+        }else{
             return null;
         }
-
-        String[] tmpSos = new String[3];
-        String key = transverter.CETN2Key(CE, TN);
-        String[][] sos = sodPool.queryColumns();
-
-        int count;
-        for(int i=0;i< Const.SOD_POOLSIZE;i++){
-            for(int j=0;j< Const.SOD_POOLSIZE;j++){
-                for(int k=0;k< Const.SOD_POOLSIZE;k++){
-                    tmpSos[0] = sos[i][0];
-                    tmpSos[1] = sos[j][1];
-                    tmpSos[2] = sos[k][2];
-
-                    String sod = transverter.SOS2SOD(tmpSos);
-                    count = i*Const.SOD_POOLSIZE*Const.SOD_POOLSIZE +j*Const.SOD_POOLSIZE + k +1;
-                    XLog.d("sod", "count:"+count);
-                    String tmpSom = transverter.SOD2SOM(sod, key);
-                    if(som.equals(tmpSom)){
-                        return transverter.SOD2SO(sod,key);
-                    }
-                }
-            }
-        }
-        return null;
+        return convertor.decode(cts);
     }
 
     @Override
-    public boolean testSO(String CE, String TN, String SO) throws Exception {
-        String key = transverter.CETN2Key(CE,TN);
-        String som = transverter.SO2SOM(SO, key);
-        List<CTS> ctss = ctsStore.queryByCETN(CE, TN);
+    public boolean testSO(String TN, String SO) throws Exception {
+        CTS tmp = new CTS();
+        tmp.setCE(convertor.TNToCE(TN));
+        tmp.setTN(TN);
+        String som = convertor.SOToSOM(tmp,SO);
+
+        List<CTS> ctss = ctsStore.queryByTN(TN);
         if(null != ctss && ctss.size() > 0){
             for (CTS cts:ctss){
                 if(som.equals(cts.getSOM())){
@@ -86,7 +92,6 @@ public class UIImpl implements UI {
                 }
             }
         }
-
         return false;
     }
 }

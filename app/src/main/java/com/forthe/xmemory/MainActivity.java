@@ -6,87 +6,121 @@ import android.os.Environment;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
-import android.widget.EditText;
-import android.widget.Toast;
+import android.widget.AdapterView;
+import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.forthe.xlog.XLog;
-import com.forthe.xmemory.core.BASE64;
-import com.forthe.xmemory.core.DES;
-import com.forthe.xmemory.core.Reversal;
-import com.forthe.xmemory.core.SODPool;
-import com.forthe.xmemory.core.SOTransverter;
+import com.forthe.xmemory.core.CTS;
+import com.forthe.xmemory.core.Const;
+import com.forthe.xmemory.core.SOConvertor;
 import com.forthe.xmemory.core.UI;
-import com.forthe.xmemory.frame.BASE64Impl;
-import com.forthe.xmemory.frame.DESImpl;
-import com.forthe.xmemory.frame.ReversalImpl;
-import com.forthe.xmemory.frame.SODPoolImpl;
-import com.forthe.xmemory.frame.SOTransverterImpl;
+import com.forthe.xmemory.frame.SOConvertorImpl;
 import com.forthe.xmemory.frame.UIImpl;
+import com.forthe.xmemory.widget.InputPart;
 
 public class MainActivity extends Activity implements View.OnClickListener{
-    private EditText et_tag,et_name, et_value;
+    private TextView btn_save;
+    private TextView btn_query;
+    private InputPart inputPart;
+    private Spinner spinner;
     private UI ui;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.at_main);
         XLog.init(getApplication(), getSaveDir());
-
-        et_tag = (EditText) findViewById(R.id.et_tag);
-        et_name = (EditText) findViewById(R.id.et_name);
-        et_value = (EditText) findViewById(R.id.et_value);
-
-        findViewById(R.id.bt_insert).setOnClickListener(this);
-        findViewById(R.id.bt_query).setOnClickListener(this);
-        findViewById(R.id.bt_test).setOnClickListener(this);
-
-        runOnUiThread(new Runnable() {
+        spinner = (Spinner) findViewById(R.id.spinner);
+        btn_save = (TextView) findViewById(R.id.btn_save);
+        btn_save.setOnClickListener(this);
+        btn_save.setEnabled(false);
+        btn_query = (TextView) findViewById(R.id.btn_query);
+        btn_query.setOnClickListener(this);
+        btn_query.setEnabled(false);
+        inputPart = new InputPart(this) {
             @Override
-            public void run() {
-                testDES();
+            protected void onTextChange() {
+                String TN = inputPart.getTitle();
+                String SO = inputPart.getContent();
+                if (!TextUtils.isEmpty(TN) && !TextUtils.isEmpty(SO)) {
+                    btn_save.setEnabled(true);
+                }else if(!TextUtils.isEmpty(TN)) {
+                    btn_query.setEnabled(true);
+                }else {
+                    btn_save.setEnabled(false);
+                    btn_query.setEnabled(false);
+                }
             }
-        });
+        };
+
+        ui= new UIImpl();
         new Thread(){
             @Override
             public void run() {
-
-                SODPool sodPool = new SODPoolImpl(getApplicationContext());
-                if(!sodPool.hasInited()){
-                    XLog.i("fill pool start");
-                    sodPool.fillPool();
-                    XLog.i("fill pool success");
-                }
-
+                ui.init(getApplicationContext());
+                /*runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        testDES();
+                    }
+                });*/
             }
         }.start();
 
-        ui= new UIImpl(getApplicationContext());
+
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String[] svls = getResources().getStringArray(R.array.svl);
+                svl = Integer.parseInt(svls[position]);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                svl = 0;
+            }
+        });
     }
 
 
 
     private void testDES(){
-        DES des = new DESImpl();
-        BASE64 base64 = new BASE64Impl();
-        SOTransverter transverter = new SOTransverterImpl();
-        try {
-            byte[] ret = des.encrypt("ssssssss".getBytes(),"11111111");
-            ret = base64.encode(ret);
-            String[] ss = transverter.SOD2SOS(new String(ret));
-            XLog.d("ret1:"+ss[0]);
-            XLog.d("ret2:"+ss[1]);
-            XLog.d("ret3:"+ss[2]);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    XLog.d("Start Test SOConvertor");
+                    SOConvertor convertor = new SOConvertorImpl();
+                    CTS cts = new CTS();
+                    cts.setCE("QQ");
+                    cts.setTN("3363445091");
+                    cts.setSOM(convertor.SOToSOM(cts, "tom123321"));
+                    cts.setSVL(Const.SVL_1);
+                    convertor.encode(cts, "tom123321");
 
-            String s = transverter.SOS2SOD(ss);
-            XLog.d("s:"+s);
+                    XLog.d("Level1 cts:"+cts.toString());
+                    String so = convertor.decode(cts);
+                    XLog.d("Level1 so:"+so);
 
-            ret = base64.decode(s.getBytes());
-            ret = des.decrypt(ret,"11111111");
-            XLog.d("source:"+new String(ret));
-        } catch (Exception e) {
-            e.printStackTrace();
-            XLog.e(e.getMessage());
-        }
+                    cts.setSVL(Const.SVL_2);
+                    convertor.encode(cts, "tom123321");
+                    XLog.d("Level2 cts:"+cts.toString());
+                    so = convertor.decode(cts);
+                    XLog.d("Level2 so:"+so);
+
+                    cts.setSVL(Const.SVL_3);
+                    convertor.encode(cts, "tom123321");
+                    XLog.d("Level3 cts:"+cts.toString());
+                    so = convertor.decode(cts);
+                    XLog.d("Level3 so:"+so);
+
+
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
 
@@ -103,29 +137,31 @@ public class MainActivity extends Activity implements View.OnClickListener{
         return super.onKeyDown(keyCode, event);
     }
 
+    private int svl = 0;
+
     @Override
     public void onClick(View v) {
         switch (v.getId()){
-            case R.id.bt_insert: {
-                String CE = et_tag.getText().toString();
-                String TN = et_name.getText().toString();
-                String SO = et_value.getText().toString();
-                if (TextUtils.isEmpty(CE) || TextUtils.isEmpty(TN) || TextUtils.isEmpty(SO)) {
+            case R.id.btn_save: {
+                String TA = inputPart.getLabel();
+                String TN = inputPart.getTitle();
+                String SO = inputPart.getContent();
+                if (TextUtils.isEmpty(TN) || TextUtils.isEmpty(SO)) {
                     return;
                 }
 
                 try {
-                    ui.insert(CE, TN, SO);
+                    ui.insert(TN, SO, svl,TA);
+                    XLog.d("save success");
                 } catch (Exception e) {
                     e.printStackTrace();
                     XLog.w(e.getMessage());
                 }
 
                 break;
-            }case R.id.bt_query: {
-                final String CE = et_tag.getText().toString();
-                final String TN = et_name.getText().toString();
-                if (TextUtils.isEmpty(CE) || TextUtils.isEmpty(TN)) {
+            }case R.id.btn_query: {
+                final String TN = inputPart.getTitle();
+                if (TextUtils.isEmpty(TN)) {
                     return;
                 }
                 new Thread() {
@@ -133,13 +169,13 @@ public class MainActivity extends Activity implements View.OnClickListener{
                     public void run() {
                         try {
                             XLog.d("querySo start");
-                            final String so = ui.querySO(CE, TN);
+                            final String so = ui.querySO(TN);
 
                             XLog.d("querySo ended so"+so);
                             runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    et_value.setText(null==so?"":so);
+                                    inputPart.setContent(null==so?"":so);
                                 }
                             });
 
@@ -148,22 +184,6 @@ public class MainActivity extends Activity implements View.OnClickListener{
                         }
                     }
                 }.start();
-            }break;
-            case R.id.bt_test: {
-                String CE = et_tag.getText().toString();
-                String TN = et_name.getText().toString();
-                String SO = et_value.getText().toString();
-                if (TextUtils.isEmpty(CE) || TextUtils.isEmpty(TN) || TextUtils.isEmpty(SO)) {
-                    return;
-                }
-
-                try {
-                    boolean isRight = ui.testSO(CE, TN, SO);
-                    Toast.makeText(this,""+isRight,Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    XLog.w(e.getMessage());
-                }
             }break;
         }
     }

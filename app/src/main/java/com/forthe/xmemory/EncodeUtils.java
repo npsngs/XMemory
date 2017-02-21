@@ -8,12 +8,19 @@
 package com.forthe.xmemory;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
+import android.net.wifi.WifiManager;
+import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.Base64;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -248,5 +255,101 @@ public class EncodeUtils {
         }
         return str;
 	}
-	
+
+
+	public static String byteToHexString(byte[] src) {
+        if(null == src || src.length < 1){
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for(byte b:src){
+            int i = b&0xff;
+            if(i < 16){
+                sb.append("0").append(Integer.toHexString(i));
+            }else{
+                sb.append(Integer.toHexString(i));
+            }
+        }
+		return sb.toString();
+	}
+
+
+    public static byte[] hexStringToByte(String src) {
+        if(null == src || ""== src || src.length()%2!=0){
+            return null;
+        }
+        byte[] ret = new byte[src.length()/2];
+        for(int i=0;i<ret.length;i++){
+            int b = Integer.parseInt(src.substring(i*2, i*2+2), 16);
+            ret[i] = (byte) b;
+        }
+        return ret;
+    }
+
+
+	/**
+	 * 获取设备唯一识别码
+	 *
+	 * @return
+	 */
+	private static String DEVICE_UNIQUECODE = null;
+
+	public static String getUniqueId(Context context) {
+		if (TextUtils.isEmpty(DEVICE_UNIQUECODE)) {
+			if (null != context) {
+				try {
+					TelephonyManager tm = (TelephonyManager) context
+							.getSystemService(Context.TELEPHONY_SERVICE);
+					String tmDevice = tm.getDeviceId();
+					if (TextUtils.isEmpty(tmDevice)) {
+						DEVICE_UNIQUECODE = getMacAddress(context);
+					} else {
+						DEVICE_UNIQUECODE = tmDevice;
+					}
+				} catch (Exception e) {
+					DEVICE_UNIQUECODE = getMacAddress(context);
+				}
+			}
+
+			if (TextUtils.isEmpty(DEVICE_UNIQUECODE)) {
+				DEVICE_UNIQUECODE = "errorID";
+			}
+			//DEVICE_UNIQUECODE = EncodeUtils.md5(DEVICE_UNIQUECODE);
+		}
+
+		return DEVICE_UNIQUECODE;
+	}
+
+
+	/**
+	 * 获取设备的Mac地址
+	 */
+	public static String getMacAddress(Context context) {
+		String macSerial;
+		String str;
+		try {
+			Process pp = Runtime.getRuntime().exec("cat /sys/class/net/wlan0/address");
+			InputStreamReader ir = new InputStreamReader(pp.getInputStream());
+			LineNumberReader input = new LineNumberReader(ir);
+
+			str = input.readLine();
+			if (str != null) {
+				macSerial = str.trim();// 去空格
+			} else {
+				// 赋予默认值
+				WifiManager manager = (WifiManager) context.getSystemService(
+						Context.WIFI_SERVICE);
+				macSerial = manager.getConnectionInfo().getMacAddress();
+			}
+		} catch (IOException ex) {
+			// 赋予默认值
+			WifiManager manager = (WifiManager) context.getSystemService(
+					Context.WIFI_SERVICE);
+			macSerial = manager.getConnectionInfo().getMacAddress();
+		}
+
+		return macSerial;
+	}
+
 }

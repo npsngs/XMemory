@@ -1,3 +1,20 @@
 <resources>
     <string name="app_name">XMemory</string>
+    <string name="add_record">添加记录</string>
+    <string name="open_record">查看记录</string>
+    <string name="label">标签</string>
+    <string name="title">标题</string>
+    <string name="content">内容</string>
+
+    <string name="label_hint">字数不超过10</string>
+    <string name="title_hint">字数不超过20</string>
+    <string name="content_hint">字数不超过30</string>
+    <string name="save">保存</string>
+    <string name="query">查询</string>
+
+    <string-array name="svl">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
 </resources>
